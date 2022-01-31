@@ -2,6 +2,8 @@ import { Application } from "https://deno.land/x/oak@v10.2.0/mod.ts";
 import { join } from "https://deno.land/std@0.123.0/path/mod.ts";
 import bot from "./bot.ts";
 import { config } from "./config.ts";
+import type { Payload } from "./types.ts";
+import { decode } from "./jwt.ts";
 
 const root = join(Deno.cwd(), config.static);
 
@@ -24,33 +26,52 @@ app.use(async (ctx, next) => {
   if (ctx.request.method as any == "SCORE") {
     try {
       const url = new URL(ctx.request.headers.get("referer")!);
-      const game = url.searchParams.get("game") as string | null;
-      const user_id = url.searchParams.get("user_id") as string | null;
-      const inline_id = url.searchParams.get("inline_id") as string | null;
-      const chat_id = url.searchParams.get("chat_id") as string | null;
-      const message_id = url.searchParams.get("message_id") as string | null;
-      if (!game || !user_id || (!inline_id && (!chat_id || !message_id))) {
+      const data = url.searchParams.get("data");
+      if (!data) throw null;
+      const {
+        game,
+        user_id,
+        inline_message_id,
+        chat_id,
+        message_id,
+      } = await decode<Payload>(data);
+      if (!game || !user_id || (!inline_message_id && (!chat_id || !message_id))) {
         throw null;
       }
       const score = await ctx.request.body({ type: "json" }).value;
       if (typeof score != "number") throw null;
-      let data: any;
-      if (inline_id) {
-        await bot.api.setGameScoreInline(inline_id!, +user_id, score);
-        data = await bot.api.getGameHighScoresInline(inline_id!, +user_id);
-      } else {
-        await bot.api.setGameScore(+chat_id!, +message_id!, +user_id, score);
-        data = await bot.api.getGameHighScores(+chat_id!, +message_id!, +user_id);
+      try {
+        await bot.api.raw.setGameScore({
+          user_id,
+          chat_id,
+          inline_message_id,
+          message_id,
+          score,
+        });
+      } catch ({ description }) {
+        if (
+          typeof description != "string" ||
+          !description.includes("BOT_SCORE_NOT_MODIFIED")
+        ) {
+          throw null;
+        }
       }
+      const body = await bot.api.raw.getGameHighScores({
+        user_id,
+        chat_id,
+        inline_message_id,
+        message_id,
+      });
       ctx.response.status = 200;
-      ctx.response.body = data;
-    } catch {
+      ctx.response.body = body;
+    } catch (e) {
+      if (e) console.error(e);
       ctx.response.status = 403;
     }
-    return
+    return;
   }
   try {
-    await ctx.send({ root });
+    await ctx.send({ root, index: "index.html" });
   } catch {
     next();
   }
