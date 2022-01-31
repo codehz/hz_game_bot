@@ -7,6 +7,7 @@ export type Secret = {
 export type Config = {
   base: string;
   static: string;
+  port: number;
   games: Array<{
     name: string;
     id: string;

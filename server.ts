@@ -84,4 +84,4 @@ app.addEventListener("listen", ({ hostname, port, serverType }) => {
   console.log("  using HTTP server: " + serverType);
 });
 
-export default app.listen({ port: 8080 });
+export default app.listen({ port: config.port });
