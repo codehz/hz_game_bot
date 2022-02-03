@@ -1,2 +1,4 @@
 *.yaml
 .vscode
+*.db*
+*.dll

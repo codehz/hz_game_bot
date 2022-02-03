@@ -8,7 +8,7 @@ const key = await crypto.subtle.generateKey(
 
 export function encode<T extends Record<string, any>>(
   data: T,
-  exp: number = 60 * 60,
+  exp: number = 60 * 60 * 24,
 ) {
   return create(
     { alg: "HS512", typ: "JWT" },

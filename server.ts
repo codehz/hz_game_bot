@@ -1,7 +1,7 @@
 import { Application } from "https://deno.land/x/oak@v10.2.0/mod.ts";
 import { join } from "https://deno.land/std@0.123.0/path/mod.ts";
 import bot from "./bot.ts";
-import { config } from "./config.ts";
+import { addLog, config, createSessionIfNeeded, isBlocked } from "./config.ts";
 import type { Payload } from "./types.ts";
 import { decode } from "./jwt.ts";
 
@@ -35,11 +35,32 @@ app.use(async (ctx, next) => {
         chat_id,
         message_id,
       } = await decode<Payload>(data);
-      if (!game || !user_id || (!inline_message_id && (!chat_id || !message_id))) {
+      if (
+        !game || !user_id || (!inline_message_id && (!chat_id || !message_id))
+      ) {
         throw null;
       }
-      const score = await ctx.request.body({ type: "json" }).value;
+      let score = await ctx.request.body({ type: "json" }).value;
+      let force = false;
       if (typeof score != "number") throw null;
+      isBlocked.reset();
+      isBlocked.bindAll(user_id);
+      if (isBlocked.step() != null && (isBlocked.column(0) ?? 0) > 0) {
+        score = 0;
+        force = true;
+      } else {
+        createSessionIfNeeded.reset();
+        createSessionIfNeeded.bindAll(
+          game,
+          inline_message_id,
+          chat_id,
+          message_id,
+        );
+        createSessionIfNeeded.step();
+        const id = createSessionIfNeeded.column(0);
+        addLog.reset();
+        addLog.execute(id, +new Date(), user_id, score);
+      }
       try {
         await bot.api.raw.setGameScore({
           user_id,
@@ -47,6 +68,7 @@ app.use(async (ctx, next) => {
           inline_message_id,
           message_id,
           score,
+          force,
         });
       } catch ({ description }) {
         if (
