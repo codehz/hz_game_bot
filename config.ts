@@ -10,6 +10,7 @@ export type Config = {
   static: string;
   port: number;
   db: string;
+  api?: string;
   games: Array<{
     name: string;
     id: string;

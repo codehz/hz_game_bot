@@ -2,7 +2,11 @@ import { Bot } from "https://deno.land/x/grammy@v1.6.2/mod.ts";
 import { config, secret } from "./config.ts";
 import { encode } from "./jwt.ts";
 
-const bot = new Bot(secret.token);
+const bot = new Bot(secret.token, {
+  client: {
+    apiRoot: config.api ?? "https://api.telegram.org",
+  },
+});
 
 bot.on("inline_query", (ctx) => {
   ctx.answerInlineQuery(
