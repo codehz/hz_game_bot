@@ -10,6 +10,7 @@ export type Config = {
   static: string;
   port: number;
   db: string;
+  admin: number;
   api?: string;
   games: Array<{
     name: string;
@@ -57,10 +58,22 @@ export const isBlocked = db.prepare(
   "select count(*) from blocklist where user_id = ?",
 );
 
+export const addToBlockList = db.prepare(
+  "insert into blocklist values (?, ?)",
+);
+
+export const listBlockList = db.prepare(
+  "select user_id, desc from blocklist",
+);
+
 export const createSessionIfNeeded = db.prepare(
   `insert into session values (?, ?, ?, ?, 1) on conflict do update set count=count+1 returning rowid`,
 );
 
+export const listSession = db.prepare("select * from session");
+
 export const addLog = db.prepare(
   `insert into log values (?, ?, ?, ?)`,
 );
+
+export const listLog = db.prepare("select * from log limit 10 offset ?");
