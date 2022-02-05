@@ -39,7 +39,11 @@ bot.on("callback_query:game_short_name", async (ctx) => {
 });
 
 bot.command("start", (ctx) => {
-  ctx.reply("Welcome to hz game bot (placeholder)");
+  if (ctx.from?.id == config.admin) {
+    ctx.reply("Hello admin");
+  } else {
+    ctx.reply("Welcome to hz game bot (placeholder)");
+  }
 });
 
 export default bot;
