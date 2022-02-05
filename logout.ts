@@ -8,3 +8,5 @@ const bot = new Bot(secret.token, {
 });
 
 await bot.api.logOut();
+
+Deno.exit(0);
