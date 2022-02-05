@@ -1,12 +1,15 @@
 import { Bot } from "https://deno.land/x/grammy@v1.6.2/mod.ts";
 import { config, secret } from "./config.ts";
 import { encode } from "./jwt.ts";
+import { limit } from "https://deno.land/x/grammy_ratelimiter@v1.1.4/rateLimiter.ts";
 
 const bot = new Bot(secret.token, {
   client: {
     apiRoot: config.api ?? "https://api.telegram.org",
   },
 });
+
+bot.use(limit());
 
 bot.on("inline_query", (ctx) => {
   ctx.answerInlineQuery(
