@@ -10,7 +10,7 @@ export type Config = {
   static: string;
   port: number;
   db: string;
-  admin: number;
+  admins: number[];
   api?: string;
   games: Array<{
     name: string;
@@ -27,7 +27,11 @@ export const config = YAML.parse(
 
 export const db = new Database(config.db);
 
-db.execute("begin");
+export function isAdmin(id: number) {
+  return config.admins.includes(id);
+}
+
+db.execute("pragma journal_mode=wal");
 
 db.execute(`create table if not exists session (
   game text not null,
@@ -49,8 +53,6 @@ db.execute(`create table if not exists blocklist (
   user_id integer not null,
   desc text
 )`);
-
-db.execute("commit");
 
 console.log("config readed");
 
@@ -75,8 +77,20 @@ export const createSessionIfNeeded = db.prepareTyped<
 
 export const listSession = db.prepareTyped<
   [],
+  [
+    number,
+    string,
+    string | undefined,
+    number | undefined,
+    number | undefined,
+    number,
+  ]
+>("select rowid, * from session");
+
+export const fetchSession = db.prepareTyped<
+  [number],
   [string, string | undefined, number | undefined, number | undefined, number]
->("select * from session");
+>("select * from session where rowid = ?");
 
 export const addLog = db.prepareTyped<
   [number, number, number, number],
@@ -85,7 +99,19 @@ export const addLog = db.prepareTyped<
   `insert into log values (?, ?, ?, ?) returning rowid`,
 );
 
+export const queryLog = db.prepareTyped<
+  [number],
+  [number, number, number, number]
+>("select * from log where id = ? order by time desc");
+
 export const listLog = db.prepareTyped<
   [number],
   [number, number, number, number]
->("select * from log limit 10 offset ?");
+>("select * from log order by time desc limit 100 offset ?");
+
+export const querySessionForUser = db.prepareTyped<
+  [number],
+  [string, string | undefined, number | undefined, number | undefined, number]
+>(
+  "select * from session where rowid in (select distinct id from log where user_id = ?)",
+);

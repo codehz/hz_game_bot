@@ -1,5 +1,5 @@
-import { Bot } from "https://deno.land/x/grammy@v1.6.2/mod.ts";
-import { config, secret } from "./config.ts";
+import { Bot, InlineKeyboard } from "https://deno.land/x/grammy@v1.6.2/mod.ts";
+import { config, isAdmin, secret, db } from "./config.ts";
 import { encode } from "./jwt.ts";
 import { limit } from "https://deno.land/x/grammy_ratelimiter@v1.1.4/rateLimiter.ts";
 
@@ -33,17 +33,41 @@ bot.on("callback_query:game_short_name", async (ctx) => {
     inline_message_id: ctx.inlineMessageId,
     chat_id: ctx.message?.chat.id,
     message_id: ctx.message?.message_id,
+    is_admin: isAdmin(ctx.from.id),
   };
   url.searchParams.append("data", await encode(obj));
   await ctx.answerCallbackQuery({ url: url.toString() });
 });
 
-bot.command("start", (ctx) => {
-  if (ctx.from?.id == config.admin) {
-    ctx.reply("Hello admin");
+bot.command("start", async (ctx) => {
+  if (ctx.from && isAdmin(ctx.from.id)) {
+    const url = new URL(config.base);
+    url.pathname = "admin.html";
+    url.searchParams.append(
+      "data",
+      await encode({
+        user_id: ctx.from.id,
+        user_name: ctx.from.first_name,
+      }, 60 * 60),
+    );
+    ctx.reply("Hello admin", {
+      reply_markup: {
+        inline_keyboard: new InlineKeyboard().url("admin page", url.toString())
+          .inline_keyboard,
+      },
+    });
   } else {
     ctx.reply("Welcome to hz game bot (placeholder)");
   }
 });
+
+bot.command("stop", async ctx => {
+  if (ctx.from && isAdmin(ctx.from.id)) {
+    await bot.stop();
+    db.execute("vacuum");
+    db.close();
+    Deno.exit(0);
+  }
+})
 
 export default bot;

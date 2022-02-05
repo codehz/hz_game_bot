@@ -4,6 +4,7 @@ import bot from "./bot.ts";
 import { addLog, config, createSessionIfNeeded, isBlocked } from "./config.ts";
 import type { Payload } from "./types.ts";
 import { decode } from "./jwt.ts";
+import admin from "./admin.ts";
 
 const root = join(Deno.cwd(), config.static);
 
@@ -26,13 +27,17 @@ app.use(async (ctx, next) => {
   await next();
   if (ctx.request.method == "GET" && ctx.response.status == 200) {
     const path = ctx.request.url.pathname;
-    if (!path.endsWith(".js") || path.startsWith("/deps/")) {
-      ctx.response.headers.set("Cache-Control", "max-age=3600");
-    } else {
-      ctx.response.headers.set("Cache-Control", "max-age=30");
+    if (!path.startsWith("/api/")) {
+      if (!path.endsWith(".js") || path.startsWith("/deps/")) {
+        ctx.response.headers.set("Cache-Control", "max-age=3600");
+      } else {
+        ctx.response.headers.set("Cache-Control", "max-age=30");
+      }
     }
   }
 });
+
+app.use(admin.routes());
 
 app.use(async (ctx, next) => {
   if (ctx.request.method as any == "SCORE") {
@@ -55,7 +60,7 @@ app.use(async (ctx, next) => {
       let score = await ctx.request.body({ type: "json" }).value;
       let force = false;
       if (typeof score != "number") throw null;
-      if (isBlocked.one(user_id)[0] > 0) {
+      if (isBlocked.one(user_id)![0] > 0) {
         score = 0;
         force = true;
       } else {
@@ -64,7 +69,7 @@ app.use(async (ctx, next) => {
           inline_message_id,
           chat_id,
           message_id,
-        );
+        )!;
         addLog.one(id, +new Date(), user_id, score);
       }
       try {
