@@ -54,14 +54,20 @@ db.execute(`create table if not exists blocklist (
   desc text
 )`);
 
-console.log("config readed");
+db.execute(
+  `create unique index if not exists uniq_blocklist on blocklist (user_id)`,
+);
+
+console.log("config loaded");
 
 export const isBlocked = db.prepareTyped<[number], [number]>(
   "select count(*) from blocklist where user_id = ?",
 );
 
 export const addToBlockList = db.prepareTyped<[number, string], [number]>(
-  "insert into blocklist values (?, ?) returning rowid",
+  `insert into blocklist values (?001, ?002)
+  on conflict do update set desc = ?002
+  returning rowid`,
 );
 
 export const listBlockList = db.prepareTyped<[], [number, string]>(
