@@ -23,6 +23,18 @@ app.use(async (ctx, next) => {
 });
 
 app.use(async (ctx, next) => {
+  await next();
+  if (ctx.request.method == "GET" && ctx.response.status == 200) {
+    const path = ctx.request.url.pathname;
+    if (!path.endsWith(".js") || path.startsWith("/deps/")) {
+      ctx.response.headers.set("Cache-Control", "max-age=3600");
+    } else {
+      ctx.response.headers.set("Cache-Control", "max-age=30");
+    }
+  }
+});
+
+app.use(async (ctx, next) => {
   if (ctx.request.method as any == "SCORE") {
     try {
       const url = new URL(ctx.request.headers.get("referer")!);
