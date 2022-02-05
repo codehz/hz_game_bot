@@ -65,8 +65,8 @@ export const isBlocked = db.prepareTyped<[number], [number]>(
 );
 
 export const addToBlockList = db.prepareTyped<[number, string], [number]>(
-  `insert into blocklist values (?001, ?002)
-  on conflict do update set desc = ?002
+  `insert into blocklist values (?1, ?2)
+  on conflict do update set desc = ?2
   returning rowid`,
 );
 
