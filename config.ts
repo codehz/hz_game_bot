@@ -1,5 +1,5 @@
 import * as YAML from "https://deno.land/std@0.123.0/encoding/yaml.ts";
-import { Database } from "https://deno.land/x/sqlite3@0.3.0/mod.ts";
+import Database, { TypedQuery } from "./db.ts";
 
 export type Secret = {
   token: string;
@@ -31,7 +31,7 @@ db.execute("begin");
 
 db.execute(`create table if not exists session (
   game text not null,
-  inline_message_id integer,
+  inline_message_id text,
   chat_id integer,
   message_id integer,
   count integer,
@@ -52,28 +52,40 @@ db.execute(`create table if not exists blocklist (
 
 db.execute("commit");
 
-console.log("here");
+console.log("config readed");
 
-export const isBlocked = db.prepare(
+export const isBlocked = db.prepareTyped<[number], [number]>(
   "select count(*) from blocklist where user_id = ?",
 );
 
-export const addToBlockList = db.prepare(
-  "insert into blocklist values (?, ?)",
+export const addToBlockList = db.prepareTyped<[number, string], [number]>(
+  "insert into blocklist values (?, ?) returning rowid",
 );
 
-export const listBlockList = db.prepare(
+export const listBlockList = db.prepareTyped<[], [number, string]>(
   "select user_id, desc from blocklist",
 );
 
-export const createSessionIfNeeded = db.prepare(
+export const createSessionIfNeeded = db.prepareTyped<
+  [string, string | undefined, number | undefined, number | undefined],
+  [number]
+>(
   `insert into session values (?, ?, ?, ?, 1) on conflict do update set count=count+1 returning rowid`,
 );
 
-export const listSession = db.prepare("select * from session");
+export const listSession = db.prepareTyped<
+  [],
+  [string, string | undefined, number | undefined, number | undefined, number]
+>("select * from session");
 
-export const addLog = db.prepare(
-  `insert into log values (?, ?, ?, ?)`,
+export const addLog = db.prepareTyped<
+  [number, number, number, number],
+  [number]
+>(
+  `insert into log values (?, ?, ?, ?) returning rowid`,
 );
 
-export const listLog = db.prepare("select * from log limit 10 offset ?");
+export const listLog = db.prepareTyped<
+  [number],
+  [number, number, number, number]
+>("select * from log limit 10 offset ?");

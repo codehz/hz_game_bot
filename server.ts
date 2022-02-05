@@ -43,33 +43,29 @@ app.use(async (ctx, next) => {
       let score = await ctx.request.body({ type: "json" }).value;
       let force = false;
       if (typeof score != "number") throw null;
-      isBlocked.reset();
-      isBlocked.bindAll(user_id);
-      if (isBlocked.step() != null && (isBlocked.column(0) ?? 0) > 0) {
+      if (isBlocked.one(user_id)[0] > 0) {
         score = 0;
         force = true;
       } else {
-        createSessionIfNeeded.reset();
-        createSessionIfNeeded.bindAll(
+        const [id] = createSessionIfNeeded.one(
           game,
           inline_message_id,
           chat_id,
           message_id,
         );
-        createSessionIfNeeded.step();
-        const id = createSessionIfNeeded.column(0);
-        addLog.reset();
-        addLog.execute(id, +new Date(), user_id, score);
+        addLog.one(id, +new Date(), user_id, score);
       }
       try {
-        await bot.api.raw.setGameScore({
-          user_id,
-          chat_id,
-          inline_message_id,
-          message_id,
-          score,
-          force,
-        });
+        if (score > 0 || force) {
+          await bot.api.raw.setGameScore({
+            user_id,
+            chat_id,
+            inline_message_id,
+            message_id,
+            score,
+            force,
+          });
+        }
       } catch ({ description }) {
         if (
           typeof description != "string" ||
