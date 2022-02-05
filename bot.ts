@@ -38,4 +38,8 @@ bot.on("callback_query:game_short_name", async (ctx) => {
   await ctx.answerCallbackQuery({ url: url.toString() });
 });
 
+bot.command("start", (ctx) => {
+  ctx.reply("Welcome to hz game bot (placeholder)");
+});
+
 export default bot;
