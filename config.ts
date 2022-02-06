@@ -136,7 +136,7 @@ export function* queryLog({ page, session, user, min_time, max_time }: {
     `select * from log where 1 = 1${str} order by time desc limit 100 offset ?`,
   );
   try {
-    statement.bindAll(arr);
+    statement.bindAll(...arr);
     let step: Row | undefined;
     while (step = statement.step()) {
       yield step.asArray();
