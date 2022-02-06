@@ -1,4 +1,5 @@
 import * as YAML from "https://deno.land/std@0.123.0/encoding/yaml.ts";
+import { Row } from "https://deno.land/x/sqlite3@0.3.0/mod.ts";
 import Database, { TypedQuery } from "./db.ts";
 
 export type Secret = {
@@ -105,15 +106,46 @@ export const addLog = db.prepareTyped<
   `insert into log values (?, ?, ?, ?) returning rowid`,
 );
 
-export const queryLog = db.prepareTyped<
-  [number],
-  [number, number, number, number]
->("select * from log where id = ? order by time desc");
-
-export const listLog = db.prepareTyped<
-  [number],
-  [number, number, number, number]
->("select * from log order by time desc limit 100 offset ?");
+export function* queryLog({ page, session, user, min_time, max_time }: {
+  page: number;
+  session?: number;
+  user?: number;
+  min_time?: number;
+  max_time?: number;
+}): Generator<[number, number, number, number]> {
+  let str = "";
+  const arr = [];
+  if (session) {
+    str += ` and id = ?`;
+    arr.push(session);
+  }
+  if (user) {
+    str += ` and user_id = ?`;
+    arr.push(user);
+  }
+  if (min_time) {
+    str += ` and time >= ?`;
+    arr.push(min_time);
+  }
+  if (max_time) {
+    str += ` and time >= ?`;
+    arr.push(max_time);
+  }
+  arr.push(page * 100);
+  const statement = db.prepare(
+    `select * from log where 1 = 1${str} order by time desc limit 100 offset ?`,
+  );
+  try {
+    statement.bindAll(arr);
+    let step: Row | undefined;
+    while (step = statement.step()) {
+      yield step.asArray();
+    }
+  } finally {
+    statement.reset();
+    statement.finalize();
+  }
+}
 
 export const querySessionForUser = db.prepareTyped<
   [number],

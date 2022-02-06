@@ -5,7 +5,6 @@ import {
   fetchSession,
   isAdmin,
   listBlockList,
-  listLog,
   listSession,
   queryLog,
   querySessionForUser,
@@ -55,7 +54,7 @@ admin.get("/sessions", (ctx) => {
 
 admin.get("/session/:id", (ctx) => {
   const id = +ctx.params.id;
-  const sess = fetchSession.one(+ctx.params.id);
+  const sess = fetchSession.one(id);
   if (!sess) {
     ctx.response.status = 404;
   } else {
@@ -65,17 +64,32 @@ admin.get("/session/:id", (ctx) => {
       inline_message_id?: string;
       chat_id?: number;
       message_id?: number;
-      logs: {
-        time: number;
-        user_id: number;
-        score: number;
-      }[];
-    } = { game, inline_message_id, chat_id, message_id, logs: [] };
-    for (const [, time, user_id, score] of queryLog.query(id)) {
-      ret.logs.push({ time, user_id, score });
-    }
+    } = { game, inline_message_id, chat_id, message_id };
     ctx.response.body = ret;
     ctx.response.status = 200;
+  }
+});
+
+admin.get("/session/:id/:user", async (ctx) => {
+  const id = +ctx.params.id;
+  const user_id = +ctx.params.user;
+  const sess = fetchSession.one(id);
+  if (!sess) {
+    ctx.response.status = 404;
+  } else {
+    const [, inline_message_id, chat_id, message_id] = sess;
+    try {
+      const highscores = await bot.api.raw.getGameHighScores({
+        user_id,
+        inline_message_id,
+        chat_id,
+        message_id,
+      });
+      ctx.response.body = highscores;
+      ctx.response.status = 200;
+    } catch {
+      ctx.response.status = 404;
+    }
   }
 });
 
@@ -112,13 +126,25 @@ admin.put("/block/:user", async (ctx) => {
 
 admin.get("/log/:page", (ctx) => {
   const page = +ctx.params.page;
+  const session = toNumber(ctx.request.url.searchParams.get("session_id"));
+  const user = toNumber(ctx.request.url.searchParams.get("user_id"));
+  const min_time = toNumber(ctx.request.url.searchParams.get("min_time"));
+  const max_time = toNumber(ctx.request.url.searchParams.get("max_time"));
   const list: {
     session_id: number;
     time: number;
     user_id: number;
     score: number;
   }[] = [];
-  for (const [session_id, time, user_id, score] of listLog.query(page)) {
+  for (
+    const [session_id, time, user_id, score] of queryLog({
+      page,
+      session,
+      user,
+      min_time,
+      max_time,
+    })
+  ) {
     list.push({ session_id, time, user_id, score });
   }
   ctx.response.body = list;
@@ -126,3 +152,9 @@ admin.get("/log/:page", (ctx) => {
 });
 
 export default admin;
+
+function toNumber(str: string | null): number | undefined {
+  if (str) {
+    return +str;
+  }
+}

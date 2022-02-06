@@ -34,6 +34,10 @@ export class TypedQuery<I extends unknown[], O extends unknown[] = []> {
       this.#statement.reset();
     }
   }
+
+  finalize() {
+    this.#statement.finalize();
+  }
 }
 
 export default class TypedDatabase extends Database {
