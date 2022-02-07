@@ -1,7 +1,14 @@
 import { Application } from "https://deno.land/x/oak@v10.2.0/mod.ts";
 import { join } from "https://deno.land/std@0.123.0/path/mod.ts";
 import bot from "./bot.ts";
-import { addLog, config, createSessionIfNeeded, isBlocked } from "./config.ts";
+import {
+  addLog,
+  addToUserCache,
+  config,
+  createSessionIfNeeded,
+  isBlocked,
+  transaction,
+} from "./config.ts";
 import type { Payload } from "./types.ts";
 import { decode } from "./jwt.ts";
 import admin from "./admin.ts";
@@ -64,13 +71,15 @@ app.use(async (ctx, next) => {
         score = 0;
         force = true;
       } else {
-        const [id] = createSessionIfNeeded.one(
-          game,
-          inline_message_id,
-          chat_id,
-          message_id,
-        )!;
-        addLog.one(id, +new Date(), user_id, score);
+        transaction(() => {
+          const [id] = createSessionIfNeeded.one(
+            game,
+            inline_message_id,
+            chat_id,
+            message_id,
+          )!;
+          addLog.one(id, +new Date(), user_id, score);
+        });
       }
       try {
         if (score > 0 || force) {
@@ -97,6 +106,10 @@ app.use(async (ctx, next) => {
         inline_message_id,
         message_id,
       });
+      transaction(() => {
+        body.forEach(({ user }) => addToUserCache(user));
+      });
+
       ctx.response.status = 200;
       ctx.response.body = body;
     } catch (e) {

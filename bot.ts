@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "https://deno.land/x/grammy@v1.6.2/mod.ts";
-import { config, isAdmin, secret, db } from "./config.ts";
+import { addToUserCache, config, db, isAdmin, secret } from "./config.ts";
 import { encode } from "./jwt.ts";
 import { limit } from "https://deno.land/x/grammy_ratelimiter@v1.1.4/rateLimiter.ts";
 
@@ -11,18 +11,28 @@ const bot = new Bot(secret.token, {
 
 bot.use(limit());
 
+bot.use((ctx, next) => {
+  if (ctx.from) {
+    addToUserCache(ctx.from);
+  }
+
+  return next();
+});
+
 bot.on("inline_query", (ctx) => {
-  ctx.answerInlineQuery(
-    config.games.map(({ id }) => ({
-      type: "game",
-      id,
-      game_short_name: id,
-    })),
-    {
-      cache_time: 600,
-      is_personal: false,
-    },
-  );
+  try {
+    ctx.answerInlineQuery(
+      config.games.map(({ id }) => ({
+        type: "game",
+        id,
+        game_short_name: id,
+      })),
+      {
+        cache_time: 600,
+        is_personal: false,
+      },
+    );
+  } catch {}
 });
 
 bot.on("callback_query:game_short_name", async (ctx) => {
@@ -36,7 +46,9 @@ bot.on("callback_query:game_short_name", async (ctx) => {
     is_admin: isAdmin(ctx.from.id),
   };
   url.searchParams.append("data", await encode(obj));
-  await ctx.answerCallbackQuery({ url: url.toString() });
+  try {
+    await ctx.answerCallbackQuery({ url: url.toString() });
+  } catch {}
 });
 
 bot.command("start", async (ctx) => {
@@ -61,13 +73,13 @@ bot.command("start", async (ctx) => {
   }
 });
 
-bot.command("stop", async ctx => {
+bot.command("stop", async (ctx) => {
   if (ctx.from && isAdmin(ctx.from.id)) {
     await bot.stop();
     db.execute("vacuum");
     db.close();
     Deno.exit(0);
   }
-})
+});
 
 export default bot;

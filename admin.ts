@@ -2,12 +2,16 @@ import { Router } from "https://deno.land/x/oak@v10.2.0/mod.ts";
 import { decode } from "./jwt.ts";
 import {
   addToBlockList,
+  addToUserCache,
   fetchSession,
+  fetchUser,
   isAdmin,
   listBlockList,
   listSession,
   queryLog,
   querySessionForUser,
+  removeFromBlocklist,
+  transaction,
 } from "./config.ts";
 import bot from "./bot.ts";
 
@@ -39,14 +43,12 @@ admin.get("/sessions", (ctx) => {
     inline_message_id?: string;
     chat_id?: number;
     message_id?: number;
-    count: number;
   }[] = [];
   for (
-    const [id, game, inline_message_id, chat_id, message_id, count]
-      of listSession
-        .query()
+    const [id, game, inline_message_id, chat_id, message_id] of listSession
+      .query()
   ) {
-    list.push({ id, game, inline_message_id, chat_id, message_id, count });
+    list.push({ id, game, inline_message_id, chat_id, message_id });
   }
   ctx.response.body = list;
   ctx.response.status = 200;
@@ -58,7 +60,7 @@ admin.get("/session/:id", (ctx) => {
   if (!sess) {
     ctx.response.status = 404;
   } else {
-    const [game, inline_message_id, chat_id, message_id] = sess;
+    const [, game, inline_message_id, chat_id, message_id] = sess;
     const ret: {
       game: string;
       inline_message_id?: string;
@@ -70,6 +72,23 @@ admin.get("/session/:id", (ctx) => {
   }
 });
 
+admin.get("/user/:id", async (ctx) => {
+  const id = +ctx.params.id;
+  const user = fetchUser.one(id);
+  if (user) {
+    const [game, inline_message_id, chat_id, message_id] = user;
+    const photos = await bot.api.getUserProfilePhotos(id);
+    ctx.response.body = {
+      game,
+      inline_message_id,
+      chat_id,
+      message_id,
+      photos,
+    };
+    ctx.response.status = 200;
+  }
+});
+
 admin.get("/session/:id/:user", async (ctx) => {
   const id = +ctx.params.id;
   const user_id = +ctx.params.user;
@@ -77,7 +96,7 @@ admin.get("/session/:id/:user", async (ctx) => {
   if (!sess) {
     ctx.response.status = 404;
   } else {
-    const [, inline_message_id, chat_id, message_id] = sess;
+    const [, , inline_message_id, chat_id, message_id] = sess;
     try {
       const highscores = await bot.api.raw.getGameHighScores({
         user_id,
@@ -85,9 +104,13 @@ admin.get("/session/:id/:user", async (ctx) => {
         chat_id,
         message_id,
       });
+      transaction(() => {
+        highscores.forEach(({ user }) => addToUserCache(user));
+      });
       ctx.response.body = highscores;
       ctx.response.status = 200;
-    } catch {
+    } catch (e) {
+      console.error(e);
       ctx.response.status = 404;
     }
   }
@@ -107,8 +130,9 @@ admin.put("/block/:user", async (ctx) => {
   const user_id = +ctx.params.user;
   const desc = await ctx.request.body({ type: "text" }).value;
   addToBlockList.one(user_id, desc);
+  let count = 0;
   for (
-    const [, inline_message_id, chat_id, message_id] of querySessionForUser
+    const [, , inline_message_id, chat_id, message_id] of querySessionForUser
       .query(user_id)
   ) {
     try {
@@ -120,9 +144,18 @@ admin.put("/block/:user", async (ctx) => {
         score: 0,
         force: true,
       });
+      count++;
     } catch {}
   }
   ctx.response.status = 200;
+  ctx.response.body = { count };
+});
+
+admin.delete("/block/:user", async (ctx) => {
+  const user_id = +ctx.params.user;
+  removeFromBlocklist.one(user_id);
+  ctx.response.status = 200;
+  ctx.response.body = {};
 });
 
 admin.get("/log/:page", (ctx) => {
@@ -134,13 +167,26 @@ admin.get("/log/:page", (ctx) => {
   const min_score = toNumber(ctx.request.url.searchParams.get("min_score"));
   const max_score = toNumber(ctx.request.url.searchParams.get("max_score"));
   const list: {
+    game: string;
+    inline_message_id?: string;
+    chat_id?: number;
+    message_id?: number;
     session_id: number;
     time: number;
     user_id: number;
     score: number;
   }[] = [];
   for (
-    const [session_id, time, user_id, score] of queryLog({
+    const [
+      game,
+      inline_message_id,
+      chat_id,
+      message_id,
+      session_id,
+      time,
+      user_id,
+      score,
+    ] of queryLog({
       page,
       session,
       user,
@@ -150,7 +196,26 @@ admin.get("/log/:page", (ctx) => {
       max_score,
     })
   ) {
-    list.push({ session_id, time, user_id, score });
+    console.log(
+      game,
+      inline_message_id,
+      chat_id,
+      message_id,
+      session_id,
+      time,
+      user_id,
+      score,
+    );
+    list.push({
+      game,
+      inline_message_id,
+      chat_id,
+      message_id,
+      session_id,
+      time,
+      user_id,
+      score,
+    });
   }
   ctx.response.body = list;
   ctx.response.status = 200;
