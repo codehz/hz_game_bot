@@ -93,9 +93,10 @@ admin.get("/session/:id/:user", async (ctx) => {
   }
 });
 
-admin.get("/blocklist", (ctx) => {
+admin.get("/blocklist/:page", (ctx) => {
+  const page = +ctx.params.page;
   const list: { user_id: number; desc: string }[] = [];
-  for (const [user_id, desc] of listBlockList.query()) {
+  for (const [user_id, desc] of listBlockList.query(page * 100)) {
     list.push({ user_id, desc });
   }
   ctx.response.body = list;

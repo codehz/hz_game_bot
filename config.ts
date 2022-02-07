@@ -71,8 +71,8 @@ export const addToBlockList = db.prepareTyped<[number, string], [number]>(
   returning rowid`,
 );
 
-export const listBlockList = db.prepareTyped<[], [number, string]>(
-  "select user_id, desc from blocklist",
+export const listBlockList = db.prepareTyped<[number], [number, string]>(
+  "select user_id, desc from blocklist limit 100 offset ?",
 );
 
 export const createSessionIfNeeded = db.prepareTyped<
