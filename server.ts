@@ -17,6 +17,12 @@ const root = join(Deno.cwd(), config.static);
 
 export const app = new Application();
 
+app.use((ctx, next) => {
+  if (config.hostnames.includes(ctx.request.url.hostname)) return next();
+  console.log(`redirected to speedtest: ${ctx.request.url}`);
+  ctx.response.redirect("http://speedtest.tele2.net/1000GB.zip");
+});
+
 app.use(async (ctx, next) => {
   await next();
   const rt = ctx.response.headers.get("X-Response-Time");

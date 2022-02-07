@@ -7,6 +7,7 @@ export type Secret = {
 };
 
 export type Config = {
+  hostnames: string[];
   base: string;
   static: string;
   port: number;
