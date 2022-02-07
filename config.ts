@@ -106,12 +106,14 @@ export const addLog = db.prepareTyped<
   `insert into log values (?, ?, ?, ?) returning rowid`,
 );
 
-export function* queryLog({ page, session, user, min_time, max_time }: {
+export function* queryLog({ page, session, user, min_time, max_time, min_score, max_score }: {
   page: number;
   session?: number;
   user?: number;
   min_time?: number;
   max_time?: number;
+  min_score?: number;
+  max_score?: number;
 }): Generator<[number, number, number, number]> {
   let str = "";
   const arr = [];
@@ -128,8 +130,16 @@ export function* queryLog({ page, session, user, min_time, max_time }: {
     arr.push(min_time);
   }
   if (max_time) {
-    str += ` and time >= ?`;
+    str += ` and time <= ?`;
     arr.push(max_time);
+  }
+  if (min_score) {
+    str += ` and score >= ?`;
+    arr.push(min_score);
+  }
+  if (max_score) {
+    str += ` and score <= ?`;
+    arr.push(max_score);
   }
   arr.push(page * 100);
   const statement = db.prepare(

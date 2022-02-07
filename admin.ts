@@ -131,6 +131,8 @@ admin.get("/log/:page", (ctx) => {
   const user = toNumber(ctx.request.url.searchParams.get("user_id"));
   const min_time = toNumber(ctx.request.url.searchParams.get("min_time"));
   const max_time = toNumber(ctx.request.url.searchParams.get("max_time"));
+  const min_score = toNumber(ctx.request.url.searchParams.get("min_score"));
+  const max_score = toNumber(ctx.request.url.searchParams.get("max_score"));
   const list: {
     session_id: number;
     time: number;
@@ -144,6 +146,8 @@ admin.get("/log/:page", (ctx) => {
       user,
       min_time,
       max_time,
+      min_score,
+      max_score,
     })
   ) {
     list.push({ session_id, time, user_id, score });
